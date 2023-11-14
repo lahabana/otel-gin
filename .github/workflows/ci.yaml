@@ -1,0 +1,37 @@
+name: ci
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+permissions:
+  contents: read
+  checks: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v3
+        with:
+          args: --fix=false --verbose
+          version: v1.55.2
+      - run: |
+          go mod tidy
+          go generate ./...
+      - run:
+          go test ./...
+      - run:
+          mkdir -p build/linux/{arm64,amd64}
+      - name: build
+        run: |
+          for arch in amd64 arm64; do
+            echo "Building for ${arch}"
+            CGO_ENABLED=0 GOOS=linux GOARCH=${arch} go build ./...
+          done
+      - name: check if diff
+        run: |
+          git diff --no-ext-diff --exit-code
